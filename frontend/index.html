@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فروشگاه دیجیتال تستی</title>
+<style>
+body{margin:0;font-family:sans-serif;background:#f5f5f5;color:#111}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px;background:#2563eb;color:white;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+header .logo{font-weight:bold;font-size:22px}
+.cart{background:white;color:#111;padding:6px 12px;border-radius:6px;cursor:pointer;min-width:150px;text-align:center;position:relative;transition:0.2s}
+.cart:hover{transform:scale(1.05);}
+.products{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:15px;padding:10px}
+.product{background:white;padding:12px;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform 0.3s,box-shadow 0.3s;cursor:pointer;position:relative}
+.product:hover{transform:translateY(-6px);box-shadow:0 10px 20px rgba(0,0,0,0.25);}
+.product img{width:100%;height:150px;object-fit:cover;border-radius:6px;}
+.product h4{margin:0;font-size:16px;text-align:center;font-weight:bold}
+.product p{margin:0;color:#555;font-weight:bold}
+.product button{padding:8px 14px;border:none;border-radius:6px;background:#2563eb;color:white;cursor:pointer;width:100%;transition:0.2s}
+.product button:hover{background:#1e40af}
+#checkoutBtn{padding:10px 16px;background:#16a34a;color:white;border:none;border-radius:6px;cursor:pointer;margin:10px;width:calc(100% - 20px);transition:0.2s}
+#checkoutBtn:hover{background:#15803d}
+/* Modal */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);justify-content:center;align-items:center;z-index:200;animation:fadeIn 0.3s;}
+.modal-content{background:white;padding:16px;border-radius:10px;width:90%;max-width:500px;position:relative;display:flex;flex-direction:column;gap:10px;animation:slideIn 0.3s;}
+.close{position:absolute;top:10px;right:16px;font-size:24px;font-weight:bold;cursor:pointer;transition:0.2s}
+.close:hover{color:red}
+a.download-link{padding:8px 12px;background:#df1479;color:rgb(255, 0, 0);border-radius:6px;text-decoration:none;text-align:center;display:inline-block;margin-top:10px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideIn{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(max-width:600px){.products{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">فروشگاه دیجیتال تستی</div>
+  <div class="cart" id="cart">سبد خرید: 0 کالا</div>
+</header>
+
+<main>
+  <section class="products" id="products"></section>
+  <button id="checkoutBtn">پرداخت</button>
+</main>
+
+<div class="modal" id="downloadModal">
+  <div class="modal-content">
+    <span class="close" id="closeModal">&times;</span>
+    <h3>دانلود فایل</h3>
+    <p>پرداخت موفق! روی لینک زیر کلیک کنید:</p>
+    <div id="downloadLinks"></div>
+  </div>
+</div>
+
+<script>
+let products = [];
+let cart = [];
+
+// دریافت محصولات از Backend
+fetch('http://192.168.159.8:3000/api/products')
+  .then(res => res.json())
+  .then(data => {
+    if (Array.isArray(data)) products = data;
+    else if (data.products && Array.isArray(data.products)) products = data.products;
+    else products = [];
+    renderProducts();
+  })
+  .catch(err => console.error("خطا در fetch محصولات:", err));
+
+// نمایش محصولات
+function renderProducts(){
+  const container = document.getElementById('products');
+  container.innerHTML = '';
+  products.forEach(p=>{
+    const div = document.createElement('div');
+    div.className='product';
+    div.innerHTML=`
+      <img src="https://picsum.photos/240/150?random=${p.id}" alt="${p.name}">
+      <h4>${p.name}</h4>
+      <p>قیمت: ${p.price} هزار تومان</p>
+      <button onclick="addToCart(${p.id})">افزودن به سبد</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// سبد خرید
+function updateCart(){ document.getElementById('cart').textContent=`سبد خرید: ${cart.length} کالا`; }
+function addToCart(id){ cart.push(id); updateCart(); }
+
+// پرداخت با درگاه تستی
+function checkout(){
+  if(cart.length===0){ alert("سبد خرید خالی است!"); return; }
+
+  // باز کردن پنجره پرداخت تستی
+  const paymentWindow = window.open("payment.html","_blank","width=350,height=400");
+
+  // دریافت پیام از درگاه
+  window.addEventListener("message", (event) => {
+    if(event.data.paid){
+      showDownloadLinks();
+    }
+  }, { once: true }); // فقط یک بار listener
+}
+
+// نمایش لینک دانلود بعد از پرداخت موفق
+function showDownloadLinks(){
+  const downloadContainer = document.getElementById('downloadLinks');
+  downloadContainer.innerHTML = '';
+  cart.forEach(id=>{
+    const product = products.find(p=>p.id===id);
+    if(product){
+      const a = document.createElement('a');
+      a.href=`http://192.168.159.8:3000/downloads/${product.file}`;
+      a.className='download-link';
+      a.setAttribute('download','');
+      a.textContent=`دانلود: ${product.name}`;
+      downloadContainer.appendChild(a);
+    }
+  });
+  document.getElementById('downloadModal').style.display='flex';
+}
+
+document.getElementById('checkoutBtn').addEventListener('click', checkout);
+document.getElementById('closeModal').addEventListener('click',()=>{document.getElementById('downloadModal').style.display='none'});
+window.addEventListener('click',e=>{if(e.target==document.getElementById('downloadModal')) document.getElementById('downloadModal').style.display='none'});
+</script>
+
+</body>
+</html>
